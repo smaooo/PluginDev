@@ -5,6 +5,9 @@
 #include "Misc/Paths.h"
 #include "Math/UnrealMathUtility.h"
 #include "CoreMinimal.h"
+#include "HAL/PlatformFileManager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/FileHelper.h"
 
 UText_RandomizerBPLibrary::UText_RandomizerBPLibrary(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
