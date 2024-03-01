@@ -2,29 +2,28 @@
 #include "ExtraCamWindowActor.h"
 #include "IExtraCamWindowPlugin.h"
 #include "GameFramework/PlayerController.h"
+#include "Kismet/KismetRenderingLibrary.h"
+#include "Kismet/GameplayStatics.h"
+#include "Brushes/SlateImageBrush.h"
 
 AExtraCamWindowActor::AExtraCamWindowActor()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	GetCaptureComponent2D()->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
 }
+
 
 void AExtraCamWindowActor::BeginPlay()
 {
 	if (!ExtraCamWindowEnabled)
 		return;
-
-	
-
-	if(LockToPlayerCam == false)
-		GetCameraComponent()->bLockToHmd = false;
-	
-
+	// TODO: Add default Widget with Image for render target
 	auto renderer = FSlateApplication::Get().GetRenderer();
 
-	if(LockResToMainWindow)
+	if (LockResToMainWindow)
 		GEngine->GameViewport->GetViewportSize(InitialWindowRes);
 
-	
+
 	SAssignNew(ExtraWindow, SWindow)
 		.ClientSize(InitialWindowRes)
 		.SizingRule(LockResToMainWindow ? ESizingRule::FixedSize : ESizingRule::UserSized)
@@ -38,12 +37,12 @@ void AExtraCamWindowActor::BeginPlay()
 	ViewportOverlayWidget = SNew(SOverlay);
 
 	TSharedRef<SGameLayerManager> LayerManagerRef = SNew(SGameLayerManager)
-	.SceneViewport(GEngine->GameViewport->GetGameViewport())
-	.Visibility(EVisibility::Visible)
-	.Cursor(CursorInWindow)
-	[
-		ViewportOverlayWidget.ToSharedRef()
-	];
+		.SceneViewport(GEngine->GameViewport->GetGameViewport())
+		.Visibility(EVisibility::Visible)
+		.Cursor(CursorInWindow)
+		[
+			ViewportOverlayWidget.ToSharedRef()
+		];
 
 	TSharedPtr<SViewport> Viewport = SNew(SViewport)
 		.RenderDirectlyToWindow(false) // true crashes some stuff because HMDs need the rendertarget tex for distortion etc..
@@ -56,6 +55,7 @@ void AExtraCamWindowActor::BeginPlay()
 
 
 	SceneViewport = MakeShareable(new FSceneViewport(GEngine->GameViewport, Viewport));
+
 
 	Viewport->SetViewportInterface(SceneViewport.ToSharedRef());
 
@@ -80,8 +80,11 @@ void AExtraCamWindowActor::BeginPlay()
 		FVector2D mainViewportSize;
 		GEngine->GameViewport->GetViewportSize(mainViewportSize);
 
-		if (mainViewportSize.X != newViewportSize.X || mainViewportSize.Y != newViewportSize.Y)
+		if (mainViewportSize.X != newViewportSize.X || mainViewportSize.Y != newViewportSize.Y) {
 			SceneViewport->ResizeFrame(mainViewportSize.X, mainViewportSize.Y, EWindowMode::Windowed);
+			GetCaptureComponent2D()->TextureTarget->ResizeTarget(mainViewportSize.X, mainViewportSize.Y);
+		}
+
 	}));
 
 
@@ -90,8 +93,10 @@ void AExtraCamWindowActor::BeginPlay()
 	else
 		StandaloneGame = false;
 
-	// initialize everything before we call base class so that in blueprint beginplay everything is ready
-
+	GetCaptureComponent2D()->TextureTarget = UKismetRenderingLibrary::CreateRenderTarget2D(this, InitialWindowRes.X, InitialWindowRes.Y);
+	RenderTargetWidget = CreateWidget<URenderWidget>(UGameplayStatics::GetPlayerController(GetWorld(), 0), URenderWidget::StaticClass());
+	RenderTargetWidget->TextureTarget->SetBrushResourceObject(GetCaptureComponent2D()->TextureTarget);
+	AddWidgetToExtraCam(RenderTargetWidget);
 	Super::BeginPlay();
 }
 
@@ -101,9 +106,9 @@ bool AExtraCamWindowActor::AddWidgetToExtraCam(UUserWidget* inWidget, int32 zOrd
 		return false;
 
 	ViewportOverlayWidget->AddSlot(zOrder)
-	[
-		inWidget->TakeWidget()
-	];
+		[
+			inWidget->TakeWidget()
+		];
 
 	return true;
 }
@@ -122,6 +127,17 @@ void AExtraCamWindowActor::Tick(float delta)
 
 	if (!ExtraCamWindowEnabled)
 		return;
+
+	if (LockToPlayerCam) {
+		APlayerController* playerController = UGameplayStatics::GetPlayerController(this, 0);
+		if (playerController != nullptr)
+		{
+			FVector camLoc;
+			FRotator camRot;
+			playerController->GetPlayerViewPoint(camLoc, camRot);
+			SetActorLocationAndRotation(camLoc, camRot);
+		}
+	}
 }
 
 void AExtraCamWindowActor::BeginDestroy()
@@ -138,4 +154,6 @@ void AExtraCamWindowActor::BeginDestroy()
 		else
 			ExtraWindow->DestroyWindowImmediately();
 	}
+
+
 }
