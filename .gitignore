@@ -16,6 +16,7 @@
 /Plugins/**/Binaries/
 /Plugins/**/Intermediate/
 /Content/TestContent/
+/Content/Testing/
 /dist/
 
 # Only allow .uasset and .umap files from /Content dir.
