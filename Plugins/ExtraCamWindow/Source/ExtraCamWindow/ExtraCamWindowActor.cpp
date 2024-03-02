@@ -6,6 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Brushes/SlateImageBrush.h"
 #include "Camera/CameraComponent.h"
+#include "Kismet/KismetInputLibrary.h"
 
 
 AExtraCamWindowActor::AExtraCamWindowActor()
@@ -36,7 +37,6 @@ void AExtraCamWindowActor::BeginPlay()
 		.Title(WindowTitle)
 		.FocusWhenFirstShown(LockMouseFocusToExtraWindow)
 		.CreateTitleBar(true);
-
 	FSlateApplication::Get().AddWindow(ExtraWindow.ToSharedRef(), true);
 
 	ViewportOverlayWidget = SNew(SOverlay);
@@ -64,9 +64,10 @@ void AExtraCamWindowActor::BeginPlay()
 
 	Viewport->SetViewportInterface(SceneViewport.ToSharedRef());
 
-
+	ExtraWindow->SetWindowMode(WindowMode);
 	ExtraWindow->SetContent(Viewport.ToSharedRef());
 	ExtraWindow->ShowWindow();
+	
 
 	SceneViewport->CaptureMouse(LockMouseFocusToExtraWindow);
 	SceneViewport->SetUserFocus(LockMouseFocusToExtraWindow);
@@ -151,6 +152,22 @@ void AExtraCamWindowActor::Tick(float delta)
 			SetActorLocationAndRotation(camLoc, camRot);
 		}
 	}
+
+	if (GetWorld()->GetFirstPlayerController()->WasInputKeyJustPressed(EKeys::Enter)) {
+		if (UKismetInputLibrary::ModifierKeysState_IsShiftDown(UKismetInputLibrary::GetModifierKeysState())) {
+			switch (ExtraWindow->GetWindowMode())
+			{
+			case EWindowMode::Windowed:
+				ExtraWindow->SetWindowMode(EWindowMode::WindowedFullscreen);
+				break;
+			case EWindowMode::WindowedFullscreen:
+				ExtraWindow->SetWindowMode(EWindowMode::Windowed);
+				break;
+			default:
+				break;
+			}
+		}
+	}
 }
 
 void AExtraCamWindowActor::BeginDestroy()
@@ -167,6 +184,4 @@ void AExtraCamWindowActor::BeginDestroy()
 		else
 			ExtraWindow->DestroyWindowImmediately();
 	}
-
-
 }
